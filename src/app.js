@@ -1,6 +1,7 @@
 const express = require("express");
 const user = require("./models/user");
 const connectDB = require("./config/database");
+const { validateSignUpData } = require("./utils/validation");
 
 const app = express();
 
@@ -28,10 +29,23 @@ app.get("/feeds", async (req, res) => {
   }
 });
 
-// Create a new user from the request body
+// Create a new user — never trust req.body, validate it first.
 app.post("/users", async (req, res) => {
-  const newUser = new user(req.body);
   try {
+    // 1) Validate incoming data
+    validateSignUpData(req);
+
+    // 2) Only pick the fields we allow — don't pass the raw body to the model
+    const { firstName, lastName, emailId, password, age, gender } = req.body;
+    const newUser = new user({
+      firstName,
+      lastName,
+      emailId,
+      password,
+      age,
+      gender,
+    });
+
     await newUser.save();
     console.log("User created successfully:", newUser);
     res.status(201).json(newUser);
