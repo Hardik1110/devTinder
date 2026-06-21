@@ -40,6 +40,33 @@ app.post("/users", async (req, res) => {
   }
 });
 
+// Update part of a user (PATCH) — only the fields sent in the body change
+app.patch("/users/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const updatedUser = await user.findByIdAndUpdate(userId, req.body, {
+      new: true,
+    });
+    res.send(updatedUser);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Replace a user (PUT) — overwrites the whole document with the body
+app.put("/users/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const updatedUser = await user.findByIdAndUpdate(userId, req.body, {
+      new: true,
+      overwrite: true,
+    });
+    res.send(updatedUser);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Connect to the DB first, and only start the server once it's connected.
 connectDB()
   .then(() => {
