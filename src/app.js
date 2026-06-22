@@ -1,4 +1,5 @@
 const express = require("express");
+const bcrypt = require("bcrypt");
 const user = require("./models/user");
 const connectDB = require("./config/database");
 const { validateSignUpData } = require("./utils/validation");
@@ -37,11 +38,15 @@ app.post("/users", async (req, res) => {
 
     // 2) Only pick the fields we allow — don't pass the raw body to the model
     const { firstName, lastName, emailId, password, age, gender } = req.body;
+
+    // 3) Hash the password before storing it — never store plain text
+    const passwordHash = await bcrypt.hash(password, 10);
+
     const newUser = new user({
       firstName,
       lastName,
       emailId,
-      password,
+      password: passwordHash,
       age,
       gender,
     });
@@ -51,6 +56,30 @@ app.post("/users", async (req, res) => {
     res.status(201).json(newUser);
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+// Login — verify email + password against the stored hash
+app.post("/login", async (req, res) => {
+  try {
+    const { emailId, password } = req.body;
+
+    const existingUser = await user.findOne({ emailId: emailId });
+    if (!existingUser) {
+      throw new Error("Invalid credentials");
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      existingUser.password,
+    );
+    if (!isPasswordValid) {
+      throw new Error("Invalid credentials");
+    }
+
+    res.send("Login successful");
+  } catch (error) {
+    res.status(400).send("ERROR: " + error.message);
   }
 });
 
