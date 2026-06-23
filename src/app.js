@@ -5,55 +5,11 @@ const user = require("./models/user");
 const connectDB = require("./config/database");
 const { validateSignUpData } = require("./utils/validation");
 const cookieParser = require("cookie-parser");
+const userAuth = require("./middlewares/auth");
 
 const app = express();
 app.use(cookieParser());
 app.use(express.json());
-
-// Fetch users by email — pass it as a query param: /users?emailId=foo@bar.com
-app.get("/users", async (req, res) => {
-  const userEmailId = req.body.emailId;
-  try {
-    console.log(userEmailId);
-    const users = await user.find({ emailId: userEmailId });
-    res.send(users);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Profile — read the token cookie, verify it, and return the logged-in user
-app.get("/profile", async (req, res) => {
-  try {
-    const { token } = req.cookies;
-    if (!token) {
-      throw new Error("Invalid token");
-    }
-
-    // Verify the token's signature and decode the payload
-    const decoded = jwt.verify(token, "DEV@Tinder$790");
-    const { _id } = decoded;
-
-    const loggedInUser = await user.findById(_id);
-    if (!loggedInUser) {
-      throw new Error("User does not exist");
-    }
-
-    res.send(loggedInUser);
-  } catch (error) {
-    res.status(400).send("ERROR: " + error.message);
-  }
-});
-
-// Fetch all users
-app.get("/feeds", async (req, res) => {
-  try {
-    const users = await user.find();
-    res.send(users);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // Create a new user — never trust req.body, validate it first.
 app.post("/users", async (req, res) => {
@@ -113,53 +69,14 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Update part of a user (PATCH) — only the fields sent in the body change
-app.patch("/users/:userId", async (req, res) => {
-  const { userId } = req.params;
-  const data = req.body;
-
+// Profile — read the token cookie, verify it, and return the logged-in user
+app.get("/profile", userAuth, async (req, res) => {
   try {
-    // Only these fields are allowed to be updated via the API.
-    const ALLOWED_UPDATES = [
-      "firstName",
-      "lastName",
-      "age",
-      "gender",
-      "photoUrl",
-      "about",
-      "skills",
-    ];
-    const isUpdateAllowed = Object.keys(data).every((field) =>
-      ALLOWED_UPDATES.includes(field),
-    );
-    if (!isUpdateAllowed) {
-      throw new Error("Update not allowed: only certain fields can be changed");
-    }
-    if (data.skills && data.skills.length > 10) {
-      throw new Error("Skills cannot be more than 10");
-    }
+    const loggedInUser = req.user;
 
-    const updatedUser = await user.findByIdAndUpdate(userId, data, {
-      new: true,
-      runValidators: true, // enforce schema validation on update too
-    });
-    res.send(updatedUser);
+    res.send(loggedInUser);
   } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// Replace a user (PUT) — overwrites the whole document with the body
-app.put("/users/:userId", async (req, res) => {
-  const { userId } = req.params;
-  try {
-    const updatedUser = await user.findByIdAndUpdate(userId, req.body, {
-      new: true,
-      overwrite: true,
-    });
-    res.send(updatedUser);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).send("ERROR: " + error.message);
   }
 });
 
