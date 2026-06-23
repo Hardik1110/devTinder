@@ -1,6 +1,5 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
 const user = require("./models/user");
 const connectDB = require("./config/database");
 const { validateSignUpData } = require("./utils/validation");
@@ -50,19 +49,14 @@ app.post("/login", async (req, res) => {
       throw new Error("Invalid credentials");
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      password,
-      existingUser.password,
-    );
+    const isPasswordValid = await existingUser.validatePassword(password);
 
     if (!isPasswordValid) {
       throw new Error("Invalid credentials");
     }
 
     // Create a signed JWT (expires in 7 days) and send it as a cookie
-    const token = jwt.sign({ _id: existingUser._id }, "DEV@Tinder$790", {
-      expiresIn: "7d",
-    });
+    const token = await existingUser.getJWT();
     res.cookie("token", token, {
       expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     });
